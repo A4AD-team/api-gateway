@@ -26,8 +26,8 @@ commit-msg:
         # Read commit message from file
         msg=$(cat {1})
         
-        # Check if message follows conventional commit format
-        if [[ ! "$msg" =~ ^(feat|fix|docs|style|refactor|test|chore|perf|ci|build|revert)(\(.+\))?: .{1,} ]]; then
+        # Check if message follows conventional commit format using grep
+        if ! echo "$msg" | grep -qE '^(feat|fix|docs|style|refactor|test|chore|perf|ci|build|revert)(\(.+\))?: .+'; then
           echo "❌ Commit message must follow conventional commit format:"
           echo "   <type>[optional scope]: <description>"
           echo ""
@@ -113,12 +113,24 @@ pre-push:
     
     # Run full test suite before push
     go-test-full:
-      run: go test -v ./...
+      run: |
+        # Check if there are Go files to test
+        if find . -name "*.go" -type f | grep -q .; then
+          go test -v ./...
+        else
+          echo "ℹ️ No Go files found, skipping tests"
+        fi
       fail_text: "Tests failed - push blocked"
     
     # Run race condition tests
     go-test-race:
-      run: go test -race ./...
+      run: |
+        # Check if there are Go files to test
+        if find . -name "*.go" -type f | grep -q .; then
+          go test -race ./...
+        else
+          echo "ℹ️ No Go files found, skipping race tests"
+        fi
       fail_text: "Race condition tests failed - push blocked"
 
 # Custom hook to block pushes to protected branches

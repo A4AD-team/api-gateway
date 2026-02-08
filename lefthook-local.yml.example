@@ -1,0 +1,44 @@
+# Local Lefthook configuration overrides
+# This file is for local development settings and should not be committed
+
+# Enable stricter validation for local development
+pre-commit:
+  commands:
+    # Additional local-only checks
+    go-mod-tidy:
+      run: go mod tidy
+      glob: "go.mod"
+    
+    go-imports:
+      run: goimports -w .
+      glob: "*.go"
+
+# Enable protected branch blocking locally
+pre-push-protected:
+  skip: false
+  commands:
+    block-protected-branches:
+      run: |
+        # Get target branch
+        target_branch=$(git rev-parse --abbrev-ref HEAD)
+        
+        # Define protected branches
+        protected_branches=("main" "develop" "master" "release/*" "hotfix/*")
+        
+        # Check if pushing to protected branch
+        for protected in "${protected_branches[@]}"; do
+          if [[ "$target_branch" == $protected ]]; then
+            echo "🚫 PUSH BLOCKED: Cannot push directly to '$target_branch' branch"
+            echo ""
+            echo "Protected branches require pull requests:"
+            echo "   • Create a feature branch"
+            echo "   • Make your changes"
+            echo "   • Create a pull request"
+            echo "   • Merge via pull request"
+            echo ""
+            echo "To bypass this check (not recommended):"
+            echo "   git push --no-verify"
+            exit 1
+          fi
+        done
+      fail_text: "Push to protected branch blocked"

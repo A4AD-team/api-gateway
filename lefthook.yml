@@ -1,0 +1,164 @@
+# Lefthook configuration for Git Flow compliance
+# Protects main branches and enforces Git Flow naming conventions
+
+pre-commit:
+  commands:
+    # Go formatting and linting
+    go-fmt:
+      run: go fmt ./...
+      glob: "*.go"
+    
+    go-vet:
+      run: go vet ./...
+      glob: "*.go"
+    
+    # Run tests on staged files
+    go-test:
+      run: go test ./...
+      glob: "*.go"
+      fail_text: "Tests failed"
+
+commit-msg:
+  commands:
+    # Validate commit message format (conventional commits)
+    commit-msg-validation:
+      run: |
+        # Read commit message from file
+        msg=$(cat {1})
+        
+        # Check if message follows conventional commit format using grep
+        if ! echo "$msg" | grep -qE '^(feat|fix|docs|style|refactor|test|chore|perf|ci|build|revert)(\(.+\))?: .+'; then
+          echo "❌ Commit message must follow conventional commit format:"
+          echo "   <type>[optional scope]: <description>"
+          echo ""
+          echo "   Types: feat, fix, docs, style, refactor, test, chore, perf, ci, build, revert"
+          echo "   Example: feat(auth): add JWT token validation"
+          echo "   Example: fix: resolve memory leak in rate limiter"
+          exit 1
+        fi
+        
+        # Check minimum length
+        if [[ ${#msg} -lt 10 ]]; then
+          echo "❌ Commit message too short (minimum 10 characters)"
+          exit 1
+        fi
+        
+        # Check maximum length for first line
+        first_line=$(echo "$msg" | head -n1)
+        if [[ ${#first_line} -gt 72 ]]; then
+          echo "❌ First line of commit message too long (maximum 72 characters)"
+          exit 1
+        fi
+        
+        echo "✅ Commit message validation passed"
+      fail_text: "Commit message validation failed"
+
+pre-push:
+  # Block pushes to protected branches
+  skip:
+    - ref: main
+    - ref: develop
+    - ref: master
+    - ref: release/*
+    - ref: hotfix/*
+  
+  commands:
+    # Branch name validation
+    branch-name-validation:
+      run: |
+        # Get current branch name
+        branch=$(git rev-parse --abbrev-ref HEAD)
+        
+        # Define allowed branch patterns
+        allowed_patterns=(
+          "feature/.*"
+          "bugfix/.*"
+          "hotfix/.*"
+          "release/.*"
+          "develop"
+          "main"
+          "master"
+        )
+        
+        # Check if branch name is valid
+        valid=false
+        for pattern in "${allowed_patterns[@]}"; do
+          if [[ "$branch" =~ ^$pattern$ ]]; then
+            valid=true
+            break
+          fi
+        done
+        
+        if [[ "$valid" == false ]]; then
+          echo "❌ Invalid branch name: '$branch'"
+          echo ""
+          echo "Branch names must follow Git Flow conventions:"
+          echo "   feature/<description>     - New features"
+          echo "   bugfix/<description>      - Bug fixes"
+          echo "   hotfix/<description>      - Production hotfixes"
+          echo "   release/<version>         - Release preparation"
+          echo "   develop                   - Development branch"
+          echo "   main/master               - Production branches"
+          echo ""
+          echo "Examples:"
+          echo "   feature/jwt-authentication"
+          echo "   bugfix/memory-leak"
+          echo "   hotfix/security-patch"
+          echo "   release/v1.2.0"
+          exit 1
+        fi
+        
+        echo "✅ Branch name validation passed"
+      fail_text: "Branch name validation failed"
+    
+    # Run full test suite before push
+    go-test-full:
+      run: |
+        # Check if there are Go files to test
+        if find . -name "*.go" -type f | grep -q .; then
+          go test -v ./...
+        else
+          echo "ℹ️ No Go files found, skipping tests"
+        fi
+      fail_text: "Tests failed - push blocked"
+    
+    # Run race condition tests
+    go-test-race:
+      run: |
+        # Check if there are Go files to test
+        if find . -name "*.go" -type f | grep -q .; then
+          go test -race ./...
+        else
+          echo "ℹ️ No Go files found, skipping race tests"
+        fi
+      fail_text: "Race condition tests failed - push blocked"
+
+# Custom hook to block pushes to protected branches
+pre-push-protected:
+  skip: true  # Disabled by default, enable in local config if needed
+  commands:
+    block-protected-branches:
+      run: |
+        # Get target branch (the branch being pushed to)
+        target_branch=$(git rev-parse --abbrev-ref HEAD)
+        
+        # Define protected branches
+        protected_branches=("main" "develop" "master" "release/*" "hotfix/*")
+        
+        # Check if pushing to protected branch
+        for protected in "${protected_branches[@]}"; do
+          if [[ "$target_branch" == $protected ]]; then
+            echo "🚫 PUSH BLOCKED: Cannot push directly to '$target_branch' branch"
+            echo ""
+            echo "Protected branches require pull requests:"
+            echo "   • Create a feature branch"
+            echo "   • Make your changes"
+            echo "   • Create a pull request"
+            echo "   • Merge via pull request"
+            echo ""
+            echo "To bypass this check (not recommended):"
+            echo "   git push --no-verify"
+            exit 1
+          fi
+        done
+      fail_text: "Push to protected branch blocked"

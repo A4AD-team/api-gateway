@@ -69,25 +69,28 @@ pre-push:
         # Get current branch name
         branch=$(git rev-parse --abbrev-ref HEAD)
         
-        # Define allowed branch patterns
-        allowed_patterns=(
-          "feature/.*"
-          "bugfix/.*"
-          "hotfix/.*"
-          "release/.*"
-          "develop"
-          "main"
-          "master"
-        )
-        
         # Check if branch name is valid
-        valid=false
-        for pattern in "${allowed_patterns[@]}"; do
-          if [[ "$branch" =~ ^$pattern$ ]]; then
-            valid=true
-            break
-          fi
-        done
+        if echo "$branch" | grep -qE "^(feature/.*|bugfix/.*|hotfix/.*|release/.*)$" || \
+           echo "$branch" | grep -qE "^(develop|main|master)$"; then
+          echo "✅ Branch name validation passed"
+        else
+          echo "❌ Invalid branch name: '$branch'"
+          echo ""
+          echo "Branch names must follow Git Flow conventions:"
+          echo "   feature/<description>     - New features"
+          echo "   bugfix/<description>      - Bug fixes"
+          echo "   hotfix/<description>      - Production hotfixes"
+          echo "   release/<version>         - Release preparation"
+          echo "   develop                   - Development branch"
+          echo "   main/master               - Production branches"
+          echo ""
+          echo "Examples:"
+          echo "   feature/jwt-authentication"
+          echo "   bugfix/memory-leak"
+          echo "   hotfix/security-patch"
+          echo "   release/v1.2.0"
+          exit 1
+        fi
         
         if [[ "$valid" == false ]]; then
           echo "❌ Invalid branch name: '$branch'"

@@ -1,0 +1,76 @@
+name: api-gateway-project
+
+services:
+  # RabbitMQ брокер сообщений
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    container_name: rabbitmq
+    hostname: rabbitmq
+    restart: unless-stopped
+    ports:
+      - "5672:5672"      # AMQP protocol
+      - "15672:15672"    # Management UI
+    environment:
+      - RABBITMQ_DEFAULT_USER=${RABBITMQ_USER:-guest}
+      - RABBITMQ_DEFAULT_PASS=${RABBITMQ_PASS:-guest}
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    networks:
+      - api-network
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  # API Gateway
+  api-gateway:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: api-gateway:latest
+    container_name: api-gateway
+    restart: unless-stopped
+    ports:
+      - "${API_PORT:-8080}:8080"
+    environment:
+      # RabbitMQ настройки с значениями по умолчанию
+      - RABBITMQ_HOST=${RABBITMQ_HOST:-rabbitmq}
+      - RABBITMQ_PORT=${RABBITMQ_PORT:-5672}
+      - RABBITMQ_USER=${RABBITMQ_USER:-guest}
+      - RABBITMQ_PASS=${RABBITMQ_PASS:-guest}
+      - RABBITMQ_VHOST=${RABBITMQ_VHOST:-/}
+      - RABBITMQ_URL=amqp://${RABBITMQ_USER:-guest}:${RABBITMQ_PASS:-guest}@${RABBITMQ_HOST:-rabbitmq}:${RABBITMQ_PORT:-5672}${RABBITMQ_VHOST:-/}
+      
+      # Настройки сервера
+      - PORT=8080
+      - APP_ENV=${APP_ENV:-development}
+      - LOG_LEVEL=${LOG_LEVEL:-debug}
+      
+      # JWT (значение по умолчанию для разработки)
+      - JWT_SECRET=${JWT_SECRET:-dev-secret-key-please-change}
+      
+      # URL сервисов (пока не используются)
+      - AUTH_SERVICE_URL=${AUTH_SERVICE_URL:-http://auth-service:8081}
+      - PROFILE_SERVICE_URL=${PROFILE_SERVICE_URL:-http://profile-service:8082}
+      - POST_SERVICE_URL=${POST_SERVICE_URL:-http://post-service:8083}
+      - COMMENT_SERVICE_URL=${COMMENT_SERVICE_URL:-http://comment-service:8084}
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - api-network
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+networks:
+  api-network:
+    driver: bridge
+    name: api-gateway-network
+
+volumes:
+  rabbitmq_data:
+    name: rabbitmq-data

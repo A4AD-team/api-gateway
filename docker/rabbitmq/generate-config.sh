@@ -5,7 +5,7 @@ set -e
 
 echo "Generating RabbitMQ configuration from environment variables..."
 
-# Создаем definitions.json из переменных окружения
+# Create definitions.json from environment variables
 cat > /etc/rabbitmq/definitions.json <<EOF
 {
   "users": ${RABBITMQ_USERS:-[]},

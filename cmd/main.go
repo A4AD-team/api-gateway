@@ -11,17 +11,17 @@ import (
 )
 
 func main() {
-	// Загружаем конфигурацию
+	// Load configuration
 	cfg := config.Load()
 
-	// Инициализируем подключение к RabbitMQ
+	// Initialize RabbitMQ connection
 	rabbitClient, err := broker.NewRabbitMQClient(cfg.RabbitMQ.URL)
 	if err != nil {
 		log.Fatalf("Failed to connect to RabbitMQ: %v", err)
 	}
 	defer rabbitClient.Close()
 
-	// Объявляем очереди
+	// Declare queues
 	queues := []string{"user_actions", "notifications", "data_requests", "default_queue"}
 	for _, queue := range queues {
 		if err := rabbitClient.DeclareQueue(queue); err != nil {
@@ -31,10 +31,10 @@ func main() {
 		}
 	}
 
-	// Создаем обработчик
+	// Create handler
 	handler := handlers.NewMessageHandler(rabbitClient)
 
-	// Настраиваем роутер
+	// Setup router
 	router := gin.Default()
 
 	// Middleware
@@ -42,7 +42,7 @@ func main() {
 	router.Use(gin.Recovery())
 	router.Use(corsMiddleware())
 
-	// Маршруты API
+	// API routes
 	api := router.Group("/api/v1")
 	{
 		api.POST("/messages", handler.SendMessage)
@@ -51,14 +51,14 @@ func main() {
 		api.GET("/queues", handler.GetQueueInfo)
 	}
 
-	// Запускаем сервер
+	// Start server
 	log.Printf("API Gateway starting on port %s", cfg.Port)
 	if err := router.Run(":" + cfg.Port); err != nil {
 		log.Fatal(err)
 	}
 }
 
-// CORS middleware для мобильных клиентов
+// CORS middleware for mobile clients
 func corsMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		c.Writer.Header().Set("Access-Control-Allow-Origin", "*")

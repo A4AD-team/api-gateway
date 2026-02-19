@@ -24,7 +24,7 @@ func NewMessageHandler(rabbitClient *broker.RabbitMQClient) *MessageHandler {
 	}
 }
 
-// SendMessage - обработчик для отправки сообщений в очередь
+// SendMessage - handler for sending messages to queue
 func (h *MessageHandler) SendMessage(c *gin.Context) {
 	var req models.MessageRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -35,7 +35,7 @@ func (h *MessageHandler) SendMessage(c *gin.Context) {
 		return
 	}
 
-	// Создаем уникальный ID сообщения
+	// Create unique message ID
 	messageID := uuid.New().String()
 
 	queueMsg := models.QueueMessage{
@@ -47,10 +47,10 @@ func (h *MessageHandler) SendMessage(c *gin.Context) {
 		Metadata:  req.Metadata,
 	}
 
-	// Определяем очередь на основе action
+	// Determine queue based on action
 	queueName := h.getQueueForAction(req.Action)
 
-	// Публикуем сообщение в RabbitMQ
+	// Publish message to RabbitMQ
 	err := h.rabbitClient.PublishMessage(queueName, queueMsg)
 	if err != nil {
 		log.Printf("Error publishing message: %v", err)
@@ -69,18 +69,18 @@ func (h *MessageHandler) SendMessage(c *gin.Context) {
 	})
 }
 
-// GetMessageStatus - получение статуса сообщения
+// GetMessageStatus - get message status
 func (h *MessageHandler) GetMessageStatus(c *gin.Context) {
 	messageID := c.Param("id")
 
-	// Здесь можно реализовать проверку статуса из БД или очереди
+	// Here you can implement status check from DB or queue
 	c.JSON(http.StatusOK, models.MessageResponse{
 		Status:    "processing",
 		MessageID: messageID,
 	})
 }
 
-// HealthCheck - проверка здоровья сервиса
+// HealthCheck - service health check
 func (h *MessageHandler) HealthCheck(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"status": "healthy",
@@ -88,17 +88,17 @@ func (h *MessageHandler) HealthCheck(c *gin.Context) {
 	})
 }
 
-// GetQueueInfo - информация об очередях
+// GetQueueInfo - information about queues
 func (h *MessageHandler) GetQueueInfo(c *gin.Context) {
-	// Здесь можно получить информацию о состоянии очередей
-	// через Management API RabbitMQ
+	// Here you can get queue status information
+	// via RabbitMQ Management API
 	c.JSON(http.StatusOK, gin.H{
 		"queues": []string{"user_actions", "notifications", "data_requests"},
 	})
 }
 
 func (h *MessageHandler) getQueueForAction(action string) string {
-	// Маршрутизация на основе action
+	// Routing based on action
 	switch action {
 	case "login", "register", "logout":
 		return "user_actions"

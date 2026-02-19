@@ -23,7 +23,7 @@ func NewRabbitMQClient(url string) (*RabbitMQClient, error) {
 		return nil, err
 	}
 
-	// Настраиваем QoS
+	// Configure QoS
 	err = ch.Qos(
 		1,     // prefetch count
 		0,     // prefetch size
@@ -65,7 +65,7 @@ func (c *RabbitMQClient) PublishMessage(queue string, body interface{}) error {
 		amqp.Publishing{
 			ContentType:  "application/json",
 			Body:         data,
-			DeliveryMode: amqp.Persistent, // делаем сообщения персистентными
+			DeliveryMode: amqp.Persistent, // make messages persistent
 		})
 
 	return err
@@ -75,7 +75,7 @@ func (c *RabbitMQClient) ConsumeMessages(queue string) (<-chan amqp.Delivery, er
 	msgs, err := c.channel.Consume(
 		queue,
 		"",    // consumer
-		false, // auto-ack (false для ручного подтверждения)
+		false, // auto-ack (false for manual acknowledgment)
 		false, // exclusive
 		false, // no-local
 		false, // no-wait

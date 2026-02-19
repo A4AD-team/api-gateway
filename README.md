@@ -21,7 +21,7 @@
 - Redis (rate-limit / session cache)
 
 ## Структура
-
+Планируемая
 ```
 api-gateway/
 ├── cmd/
@@ -34,6 +34,22 @@ api-gateway/
 ├── Dockerfile
 └── docker-compose.yml
 ```
+Нынешняя
+
+```
+api-gateway/
+├── cmd/
+│   └── main.go
+├── internal/
+│   ├── broker/
+│   ├── config/
+│   ├── handlers/
+│   ├── models/
+│   └── router/
+├── Dockerfile
+└── docker-compose.yml
+```
+
 
 ## Быстрый старт
 

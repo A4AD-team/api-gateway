@@ -175,9 +175,9 @@ type MetricsConfig struct {
 	TracingEndpoint string
 }
 
-// Load загружает конфигурацию из переменных окружения
+// Load loads configuration from environment variables
 func Load() *Config {
-	// Загружаем .env файл если существует
+	// Load .env file if it exists
 	if err := godotenv.Load(); err != nil {
 		log.Println("No .env file found, using environment variables")
 	}
@@ -200,7 +200,7 @@ func Load() *Config {
 		Features:  loadFeatureFlags(),
 	}
 
-	// Валидация
+	// Validation
 	if err := cfg.Validate(); err != nil {
 		log.Fatalf("Invalid configuration: %v", err)
 	}
@@ -210,7 +210,7 @@ func Load() *Config {
 }
 
 func loadRabbitMQConfig() *RabbitMQConfig {
-	// Базовые настройки
+	// Base configuration
 	cfg := &RabbitMQConfig{
 		Host:              getEnv("RABBITMQ_HOST", "localhost"),
 		Port:              getEnv("RABBITMQ_PORT", "5672"),
@@ -223,7 +223,7 @@ func loadRabbitMQConfig() *RabbitMQConfig {
 		FrameMax:          getIntEnv("RABBITMQ_FRAME_MAX", 131072),
 	}
 
-	// Формируем URL если не задан явно
+	// Build URL if not explicitly set
 	url := getEnv("RABBITMQ_URL", "")
 	if url == "" {
 		url = fmt.Sprintf("amqp://%s:%s@%s:%s%s",
@@ -231,7 +231,7 @@ func loadRabbitMQConfig() *RabbitMQConfig {
 	}
 	cfg.URL = url
 
-	// Загружаем очереди из JSON
+	// Load queues from JSON
 	if queuesJSON := getEnv("RABBITMQ_QUEUES", ""); queuesJSON != "" {
 		var queues []QueueConfig
 		if err := json.Unmarshal([]byte(queuesJSON), &queues); err == nil {
@@ -241,7 +241,7 @@ func loadRabbitMQConfig() *RabbitMQConfig {
 		}
 	}
 
-	// Загружаем обменники
+	// Load exchanges
 	if exchangesJSON := getEnv("RABBITMQ_EXCHANGES", ""); exchangesJSON != "" {
 		var exchanges []ExchangeConfig
 		if err := json.Unmarshal([]byte(exchangesJSON), &exchanges); err == nil {
@@ -249,7 +249,7 @@ func loadRabbitMQConfig() *RabbitMQConfig {
 		}
 	}
 
-	// Загружаем биндинги
+	// Load bindings
 	if bindingsJSON := getEnv("RABBITMQ_BINDINGS", ""); bindingsJSON != "" {
 		var bindings []BindingConfig
 		if err := json.Unmarshal([]byte(bindingsJSON), &bindings); err == nil {
@@ -257,7 +257,7 @@ func loadRabbitMQConfig() *RabbitMQConfig {
 		}
 	}
 
-	// Загружаем политики
+	// Load policies
 	if policiesJSON := getEnv("RABBITMQ_POLICIES", ""); policiesJSON != "" {
 		var policies []PolicyConfig
 		if err := json.Unmarshal([]byte(policiesJSON), &policies); err == nil {
@@ -265,9 +265,9 @@ func loadRabbitMQConfig() *RabbitMQConfig {
 		}
 	}
 
-	// Загружаем пользователей (с подстановкой паролей)
+	// Load users (with password substitution)
 	if usersJSON := getEnv("RABBITMQ_USERS", ""); usersJSON != "" {
-		// Заменяем ${VAR} на значения из env
+		// Replace ${VAR} with values from env
 		usersJSON = expandEnvVars(usersJSON)
 		var users []UserConfig
 		if err := json.Unmarshal([]byte(usersJSON), &users); err == nil {
@@ -281,7 +281,7 @@ func loadRabbitMQConfig() *RabbitMQConfig {
 func loadServicesConfig() map[string]*ServiceConfig {
 	services := make(map[string]*ServiceConfig)
 
-	// Список сервисов
+	// List of services
 	serviceNames := []string{"AUTH", "PROFILE", "POST", "COMMENT"}
 
 	for _, name := range serviceNames {
@@ -306,7 +306,7 @@ func loadServicesConfig() map[string]*ServiceConfig {
 
 func loadJWTConfig() *JWTConfig {
 	return &JWTConfig{
-		Secret:            mustGetEnv("JWT_SECRET"), // Обязательное поле
+		Secret:            mustGetEnv("JWT_SECRET"), // Required field
 		Expiration:        getDurationEnv("JWT_EXPIRATION", 24*time.Hour),
 		RefreshExpiration: getDurationEnv("JWT_REFRESH_EXPIRATION", 168*time.Hour),
 		Issuer:            getEnv("JWT_ISSUER", "api-gateway"),
@@ -355,7 +355,7 @@ func loadRedisConfig() *RedisConfig {
 		MinIdleConns: getIntEnv("REDIS_MIN_IDLE_CONNS", 5),
 	}
 
-	// Формируем URL если не задан явно
+	// Build URL if not explicitly set
 	url := getEnv("REDIS_URL", "")
 	if url == "" {
 		if cfg.Password != "" {
@@ -391,7 +391,7 @@ func loadFeatureFlags() map[string]bool {
 	}
 }
 
-// Валидация конфигурации
+// Validate validates the configuration
 func (c *Config) Validate() error {
 	if c.AppEnv == "production" {
 		if c.JWT.Secret == "change-this-in-production" ||
@@ -407,7 +407,7 @@ func (c *Config) Validate() error {
 	return nil
 }
 
-// Логирование конфигурации (без секретов)
+// Log configuration (without secrets)
 func (c *Config) logConfig() {
 	log.Println("=== Configuration ===")
 	log.Printf("App: %s v%s (%s)", c.AppName, c.AppVersion, c.AppEnv)
@@ -429,7 +429,7 @@ func (c *Config) logConfig() {
 	log.Println("======================")
 }
 
-// Вспомогательные функции
+// Helper functions
 func getEnv(key, defaultValue string) string {
 	if value, exists := os.LookupEnv(key); exists {
 		return value

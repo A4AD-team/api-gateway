@@ -5,13 +5,13 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"net/url"
-	"strings"
 
 	"github.com/gin-gonic/gin"
 
 	"api-gateway/internal/broker"
 	"api-gateway/internal/config"
 	"api-gateway/internal/handlers"
+	"api-gateway/internal/middleware"
 )
 
 func main() {
@@ -39,7 +39,8 @@ func main() {
 	handler := handlers.NewMessageHandler(rabbitClient)
 
 	// Setup router
-	router := gin.Default()
+	router := gin.New()
+	router.RedirectTrailingSlash = false
 
 	// Middleware
 	router.Use(gin.Logger())
@@ -52,7 +53,10 @@ func main() {
 	// Proxy routes
 	proxy := NewReverseProxy(cfg)
 
-	// Auth service routes
+	// JWT middleware
+	jwtMiddleware := middleware.NewJWTMiddleware(cfg.JWT.Secret)
+
+	// Auth service routes (public - no JWT)
 	authGroup := router.Group("/api/v1")
 	{
 		authGroup.Any("/auth/*path", proxy.proxyHandler("auth"))
@@ -61,11 +65,29 @@ func main() {
 		authGroup.Any("/permissions/*path", proxy.proxyHandler("auth"))
 	}
 
-	// Post service routes
-	authGroup.Any("/posts/*path", proxy.proxyHandler("post"))
+	// Public read-only routes (no JWT required)
+	publicGroup := router.Group("/api/v1")
+	{
+		publicGroup.GET("/posts", proxy.proxyHandler("post"))
+		publicGroup.GET("/posts/*path", proxy.proxyHandler("post"))
+		publicGroup.GET("/comments", proxy.proxyHandler("comment"))
+		publicGroup.GET("/comments/*path", proxy.proxyHandler("comment"))
+	}
 
-	// Comment service routes
-	authGroup.Any("/comments/*path", proxy.proxyHandler("comment"))
+	// Protected routes (require JWT for write operations)
+	protectedGroup := router.Group("/api/v1")
+	protectedGroup.Use(jwtMiddleware.Handler())
+	{
+		protectedGroup.POST("/posts", proxy.proxyHandler("post"))
+		protectedGroup.PATCH("/posts/:id", proxy.proxyHandler("post"))
+		protectedGroup.DELETE("/posts/:id", proxy.proxyHandler("post"))
+		protectedGroup.POST("/posts/:id/like", proxy.proxyHandler("post"))
+		protectedGroup.DELETE("/posts/:id/like", proxy.proxyHandler("post"))
+
+		protectedGroup.POST("/comments", proxy.proxyHandler("comment"))
+		protectedGroup.PATCH("/comments/*path", proxy.proxyHandler("comment"))
+		protectedGroup.DELETE("/comments/*path", proxy.proxyHandler("comment"))
+	}
 
 	// Start server
 	log.Printf("API Gateway starting on port %s", cfg.Port)
@@ -99,21 +121,25 @@ func (p *ReverseProxy) proxyHandler(serviceKey string) gin.HandlerFunc {
 
 		// Get the full path including the route prefix
 		fullPath := c.Request.URL.Path
-		// Remove /api/v1 prefix since backend services expect paths without it
-		apiPath := strings.TrimPrefix(fullPath, "/api/v1")
 
-		log.Printf("Proxying %s %s to %s", c.Request.Method, fullPath, svc.URL+apiPath)
+		log.Printf("Proxying %s %s to %s", c.Request.Method, fullPath, svc.URL+fullPath)
 
 		proxy := httputil.NewSingleHostReverseProxy(targetURL)
 		proxy.Director = func(req *http.Request) {
 			req.URL.Scheme = targetURL.Scheme
 			req.URL.Host = targetURL.Host
-			req.URL.Path = apiPath
+			req.URL.Path = fullPath
 			req.URL.RawQuery = c.Request.URL.RawQuery
 			req.Host = targetURL.Host
 			req.Header = c.Request.Header.Clone()
 			if _, exists := req.Header["User-Agent"]; !exists {
 				req.Header["User-Agent"] = []string{"api-gateway"}
+			}
+			if userID, exists := c.Get("x_user_id"); exists && userID != "" {
+				req.Header.Set("X-User-ID", userID.(string))
+			}
+			if username, exists := c.Get("x_username"); exists && username != "" {
+				req.Header.Set("X-Username", username.(string))
 			}
 		}
 

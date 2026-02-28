@@ -48,7 +48,7 @@ services:
       - LOG_LEVEL=${LOG_LEVEL:-debug}
       
       # JWT (значение по умолчанию для разработки)
-      - JWT_SECRET=${JWT_SECRET:-dev-secret-key-please-change}
+      - JWT_SECRET=${JWT_SECRET:-changeit-changeit-changeit-changeit}
       
       # URL сервисов (пока не используются)
       - AUTH_SERVICE_URL=${AUTH_SERVICE_URL:-http://auth-service:8081}

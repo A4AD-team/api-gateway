@@ -65,6 +65,13 @@ func main() {
 		authGroup.Any("/permissions/*path", proxy.proxyHandler("auth"))
 	}
 
+	// Profile service routes
+	profileGroup := router.Group("/api/v1")
+	{
+		profileGroup.GET("/profiles/*path", proxy.proxyHandler("profile"))
+		profileGroup.GET("/profiles", proxy.proxyHandler("profile"))
+	}
+
 	// Public read-only routes (no JWT required)
 	publicGroup := router.Group("/api/v1")
 	{
@@ -83,10 +90,15 @@ func main() {
 		protectedGroup.DELETE("/posts/:id", proxy.proxyHandler("post"))
 		protectedGroup.POST("/posts/:id/like", proxy.proxyHandler("post"))
 		protectedGroup.DELETE("/posts/:id/like", proxy.proxyHandler("post"))
+		protectedGroup.POST("/posts/:id/comments/increment", proxy.proxyHandler("post"))
+		protectedGroup.POST("/posts/:id/comments/decrement", proxy.proxyHandler("post"))
 
 		protectedGroup.POST("/comments", proxy.proxyHandler("comment"))
 		protectedGroup.PATCH("/comments/*path", proxy.proxyHandler("comment"))
 		protectedGroup.DELETE("/comments/*path", proxy.proxyHandler("comment"))
+
+		protectedGroup.PATCH("/profiles/*path", proxy.proxyHandler("profile"))
+		protectedGroup.PATCH("/profiles", proxy.proxyHandler("profile"))
 	}
 
 	// Start server
